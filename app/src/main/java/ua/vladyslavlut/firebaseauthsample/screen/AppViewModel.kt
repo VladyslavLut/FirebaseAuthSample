@@ -6,6 +6,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.google.android.gms.tasks.OnCompleteListener
+import com.google.android.gms.tasks.Task
 import com.google.firebase.FirebaseException
 import com.google.firebase.FirebaseTooManyRequestsException
 import com.google.firebase.auth.*
@@ -16,7 +18,12 @@ import ua.vladyslavlut.firebaseauthsample.*
 import ua.vladyslavlut.firebaseauthsample.common.ext.isValidPhone
 import ua.vladyslavlut.firebaseauthsample.common.snackbar.SnackbarManager
 import ua.vladyslavlut.firebaseauthsample.common.snackbar.SnackbarMessage.Companion.toSnackbarMessage
+import ua.vladyslavlut.firebaseauthsample.error.*
 import java.util.concurrent.TimeUnit
+import kotlin.Result.Companion.failure
+import kotlin.Result.Companion.success
+import kotlin.coroutines.Continuation
+import kotlin.coroutines.suspendCoroutine
 import ua.vladyslavlut.firebaseauthsample.R.string as AppText
 
 class AppViewModel(
@@ -32,7 +39,6 @@ class AppViewModel(
 
     private val phone: String get() = uiState.value.phone
     private val code: String get() = uiState.value.code
-    private val language: String get() = uiState.value.language
 
     private val phoneVerificationListener = PhoneVerificationListener()
     private var storedVerificationId: String? = ""
@@ -41,6 +47,11 @@ class AppViewModel(
 
     private var phoneVerificationBuilder: PhoneAuthOptions.Builder? = auth?.let {
         PhoneAuthOptions.newBuilder(auth)
+    }
+
+    override fun onCleared() {
+        auth?.signOut()
+        super.onCleared()
     }
 
     fun initFirebasePhoneAuth(activity: Activity) {
@@ -91,36 +102,31 @@ class AppViewModel(
         viewModelScope.launch(showErrorExceptionHandler) {
             timeoutResendCode(RESEND_OTP_TIMEOUT)
         }
-
     }
 
-    fun verifyCode(navigate: (route: String) -> Unit) {
+    fun verifyCode() {
         credential = PhoneAuthProvider.getCredential(storedVerificationId ?: TODO("handle"), code)
-        Log.d(TAG, "codeVerified:$credential")
-        navigate(SUCCESS_SCREEN)
+        viewModelScope.launch(showErrorExceptionHandler) {
+            val creds = credential ?: return@launch
+            val token = signInWithPhoneAuthCredential(creds)
+            Log.d(TAG, "idToken:$token")
+            navigator.navigate(SUCCESS_SCREEN)
+        }
     }
 
     fun onError(error: Throwable) {
         SnackbarManager.showMessage(error.toSnackbarMessage())
     }
 
-    private fun signInWithPhoneAuthCredential(activity: Activity, credential: PhoneAuthCredential) {
-        auth?.signInWithCredential(credential)
-            ?.addOnCompleteListener(activity) { task ->
-                if (task.isSuccessful) {
-                    // Sign in success, update UI with the signed-in user's information
-                    Log.d(TAG, "signInWithCredential:success")
-
-                    val user = task.result?.user
-                } else {
-                    // Sign in failed, display a message and update the UI
-                    Log.w(TAG, "signInWithCredential:failure", task.exception)
-                    if (task.exception is FirebaseAuthInvalidCredentialsException) {
-                        // The verification code entered was invalid
-                    }
-                    // Update UI
-                }
-            }
+    private suspend fun signInWithPhoneAuthCredential(credential: PhoneAuthCredential): String {
+        val auth = auth ?: throw FirebaseAuthNotInitialized()
+        val user: FirebaseUser = suspendCoroutine {
+            auth.signInWithCredential(credential).addOnCompleteListener(AuthCompleteListener(it))
+        }
+        val tokenId: String = suspendCoroutine {
+            user.getIdToken(false).addOnCompleteListener(TokenIdCompleteListener(it))
+        }
+        return tokenId
     }
 
     private suspend fun timeoutResendCode(timeout: Long) {
@@ -136,7 +142,10 @@ class AppViewModel(
         override fun onVerificationCompleted(credential: PhoneAuthCredential) {
             Log.d(TAG, "onVerificationCompleted:$credential")
             this@AppViewModel.credential = credential
-            navigator.navigate(SUCCESS_SCREEN)
+            viewModelScope.launch(showErrorExceptionHandler) {
+                val token = signInWithPhoneAuthCredential(credential)
+                navigator.navigate(SUCCESS_SCREEN)
+            }
         }
 
         override fun onVerificationFailed(e: FirebaseException) {
@@ -160,6 +169,36 @@ class AppViewModel(
             storedVerificationId = verificationId
             resendToken = token
             navigator.navigate(VERIFY_OTP_SCREEN)
+        }
+    }
+
+    private class AuthCompleteListener(
+        private val continuation: Continuation<FirebaseUser>
+    ) : OnCompleteListener<AuthResult> {
+        override fun onComplete(task: Task<AuthResult>) {
+            if (task.isSuccessful) {
+                val user = task.result?.user
+                if (user == null) continuation.resumeWith(failure(UserIsNullError()))
+                else continuation.resumeWith(success(user))
+            } else if (task.exception is FirebaseAuthInvalidCredentialsException) {
+                continuation.resumeWith(failure(InvalidVerificationCodeError()))
+            } else {
+                continuation.resumeWith(failure(UnexpectedError()))
+            }
+        }
+    }
+
+    private class TokenIdCompleteListener(
+        private val continuation: Continuation<String>
+    ) : OnCompleteListener<GetTokenResult> {
+        override fun onComplete(task: Task<GetTokenResult>) {
+            if (task.isSuccessful) {
+                val token = task.result?.token
+                if (token.isNullOrEmpty()) continuation.resumeWith(failure(TokenIdIsNullError()))
+                else continuation.resumeWith(success(token))
+            } else {
+                continuation.resumeWith(failure(UnexpectedError()))
+            }
         }
     }
 

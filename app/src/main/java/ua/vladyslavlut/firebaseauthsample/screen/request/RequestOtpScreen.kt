@@ -72,7 +72,7 @@ fun RequestOtpScreen(
             )
             DropdownSelector(
                 label = AppText.language,
-                options = listOf("en", "uk", "pl"),
+                options = listOf("en", "ua", "pl"),
                 selection = uiState.language,
                 onNewValue = viewModel::onLanguageChange
             )

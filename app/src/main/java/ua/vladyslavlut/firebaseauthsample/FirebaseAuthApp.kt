@@ -96,9 +96,7 @@ fun NavGraphBuilder.makeNavGraph(
     }
 
     composable(VERIFY_OTP_SCREEN) {
-        VerifyOtpScreen(
-            viewModel
-        ) { route -> appState.navigate(route) }
+        VerifyOtpScreen(viewModel)
     }
 
     composable(SUCCESS_SCREEN) {

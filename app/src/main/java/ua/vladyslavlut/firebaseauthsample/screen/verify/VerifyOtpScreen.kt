@@ -30,8 +30,7 @@ import ua.vladyslavlut.firebaseauthsample.R.string as AppText
 @ExperimentalComposeUiApi
 @Composable
 fun VerifyOtpScreen(
-    viewModel: AppViewModel,
-    navigate: (String) -> Unit
+    viewModel: AppViewModel
 ) {
     val uiState: AppUiState by viewModel.uiState
 
@@ -70,7 +69,7 @@ fun VerifyOtpScreen(
             R.string.verify_otp,
             Modifier.basicButton()
         ) {
-            viewModel.verifyCode(navigate)
+            viewModel.verifyCode()
         }
     }
 }
@@ -80,6 +79,6 @@ fun VerifyOtpScreen(
 @Composable
 fun VerifyOtpScreenPreview() {
     FirebaseAuthSampleTheme {
-        VerifyOtpScreen(AppViewModel()) { }
+        VerifyOtpScreen(AppViewModel())
     }
 }
