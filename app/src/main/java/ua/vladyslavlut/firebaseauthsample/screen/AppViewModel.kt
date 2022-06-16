@@ -77,7 +77,14 @@ class AppViewModel(
 
     fun onLanguageChange(newValue: String) {
         uiState.value = uiState.value.copy(language = newValue)
-        auth?.setLanguageCode(newValue)
+        if (newValue.length >= 2) {
+            auth?.setLanguageCode(newValue)
+        }
+    }
+
+    fun onForceCaptchaChange(newValue: Boolean) {
+        uiState.value = uiState.value.copy(forceCaptchaEnabled = newValue)
+        FirebaseAuth.getInstance().firebaseAuthSettings.forceRecaptchaFlowForTesting(newValue)
     }
 
     fun requestCode() {
