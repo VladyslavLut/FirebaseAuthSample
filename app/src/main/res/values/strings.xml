@@ -1,0 +1,20 @@
+<resources>
+    <string name="app_name">FirebaseAuthSample</string>
+
+
+    <string name="phone">Phone</string>
+    <string name="code">Code</string>
+    <string name="language">Language</string>
+    <string name="phone_error">Please insert a valid phone.</string>
+    <string name="generic_error">Something wrong happened. Please try again.</string>
+    <string name="cancel">Cancel</string>
+    <string name="back">Back</string>
+
+    <string name="phone_verification">Phone Verification</string>
+    <string name="success">Success</string>
+    <string name="request_otp">Request OTP</string>
+    <string name="resend_otp">Resend OTP</string>
+    <string name="verify_otp">Verify OTP</string>
+    <string name="phone_verified">Phone Verified</string>
+
+</resources>
