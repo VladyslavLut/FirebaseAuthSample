@@ -9,6 +9,7 @@
     <string name="generic_error">Something wrong happened. Please try again.</string>
     <string name="cancel">Cancel</string>
     <string name="back">Back</string>
+    <string name="signOut">Sign out</string>
 
     <string name="phone_verification">Phone Verification</string>
     <string name="success">Success</string>

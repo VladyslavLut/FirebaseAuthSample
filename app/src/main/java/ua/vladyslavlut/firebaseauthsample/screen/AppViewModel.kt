@@ -121,6 +121,13 @@ class AppViewModel(
         }
     }
 
+    fun signOut() {
+        auth?.signOut()
+        onPhoneChange("")
+        onCodeChange("")
+        navigator.navigate(REQUEST_OTP_SCREEN)
+    }
+
     fun onError(error: Throwable) {
         SnackbarManager.showMessage(error.toSnackbarMessage())
     }
