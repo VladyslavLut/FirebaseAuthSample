@@ -67,7 +67,8 @@ fun VerifyOtpScreen(
         Spacer(modifier = Modifier.weight(1f))
         BasicButton(
             R.string.verify_otp,
-            Modifier.basicButton()
+            Modifier.basicButton(),
+            enabled = !uiState.isLoading
         ) {
             viewModel.verifyCode()
         }

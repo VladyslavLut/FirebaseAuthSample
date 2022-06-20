@@ -17,7 +17,6 @@ import ua.vladyslavlut.firebaseauthsample.common.ext.fieldModifier
 import ua.vladyslavlut.firebaseauthsample.screen.AppViewModel
 import ua.vladyslavlut.firebaseauthsample.R.string as AppText
 
-
 @Composable
 fun SuccessScreen(
     viewModel: AppViewModel,

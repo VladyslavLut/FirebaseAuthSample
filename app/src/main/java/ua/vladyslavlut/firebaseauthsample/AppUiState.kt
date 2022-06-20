@@ -5,5 +5,7 @@ data class AppUiState(
     val code: String = "",
     val language: String = "",
     val timeout: Long = 0L,
-    val forceCaptchaEnabled: Boolean = false
+    val forceCaptchaEnabled: Boolean = false,
+    val isLoading: Boolean = false,
+    val useSystemLanguage: Boolean = false
 )

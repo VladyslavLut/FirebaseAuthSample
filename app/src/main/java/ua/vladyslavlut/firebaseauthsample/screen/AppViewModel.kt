@@ -12,6 +12,7 @@ import com.google.firebase.FirebaseException
 import com.google.firebase.FirebaseTooManyRequestsException
 import com.google.firebase.auth.*
 import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import ua.vladyslavlut.firebaseauthsample.*
@@ -44,6 +45,8 @@ class AppViewModel(
     private var storedVerificationId: String? = ""
     private var resendToken: PhoneAuthProvider.ForceResendingToken? = null
     private var credential: PhoneAuthCredential? = null
+
+    private var timeoutJob: Job? = null
 
     private var phoneVerificationBuilder: PhoneAuthOptions.Builder? = auth?.let {
         PhoneAuthOptions.newBuilder(auth)
@@ -82,6 +85,15 @@ class AppViewModel(
         }
     }
 
+    fun onUseSystemLanguageChange(newValue: Boolean) {
+        uiState.value = uiState.value.copy(useSystemLanguage = newValue)
+        if (newValue) {
+            auth?.useAppLanguage()
+        } else {
+            onLanguageChange(uiState.value.language)
+        }
+    }
+
     fun onForceCaptchaChange(newValue: Boolean) {
         uiState.value = uiState.value.copy(forceCaptchaEnabled = newValue)
         FirebaseAuth.getInstance().firebaseAuthSettings.forceRecaptchaFlowForTesting(newValue)
@@ -95,9 +107,7 @@ class AppViewModel(
 
         val options = phoneVerificationBuilder?.setPhoneNumber(phone)?.build() ?: return
         PhoneAuthProvider.verifyPhoneNumber(options)
-        viewModelScope.launch(showErrorExceptionHandler) {
-            timeoutResendCode(RESEND_OTP_TIMEOUT)
-        }
+        loading(true)
     }
 
     fun resendCode() {
@@ -106,9 +116,8 @@ class AppViewModel(
             ?.setForceResendingToken(token)
             ?.build() ?: return
         PhoneAuthProvider.verifyPhoneNumber(options)
-        viewModelScope.launch(showErrorExceptionHandler) {
-            timeoutResendCode(RESEND_OTP_TIMEOUT)
-        }
+        loading(true)
+        timeoutResendCode()
     }
 
     fun verifyCode() {
@@ -118,6 +127,7 @@ class AppViewModel(
             val token = signInWithPhoneAuthCredential(creds)
             Log.d(TAG, "idToken:$token")
             navigator.navigate(SUCCESS_SCREEN)
+            loading(false)
         }
     }
 
@@ -135,12 +145,21 @@ class AppViewModel(
     private suspend fun signInWithPhoneAuthCredential(credential: PhoneAuthCredential): String {
         val auth = auth ?: throw FirebaseAuthNotInitialized()
         val user: FirebaseUser = suspendCoroutine {
+            loading(true)
             auth.signInWithCredential(credential).addOnCompleteListener(AuthCompleteListener(it))
         }
         val tokenId: String = suspendCoroutine {
+            loading(true)
             user.getIdToken(false).addOnCompleteListener(TokenIdCompleteListener(it))
         }
         return tokenId
+    }
+
+    private fun timeoutResendCode() {
+        timeoutJob?.cancel()
+        timeoutJob = viewModelScope.launch(showErrorExceptionHandler) {
+            timeoutResendCode(RESEND_OTP_TIMEOUT)
+        }
     }
 
     private suspend fun timeoutResendCode(timeout: Long) {
@@ -148,6 +167,10 @@ class AppViewModel(
         delay(ONE_SECOND)
         val remains = timeout - 1
         if (remains >= 0) timeoutResendCode(remains)
+    }
+
+    private fun loading(isLoading: Boolean) {
+        uiState.value = uiState.value.copy(isLoading = isLoading)
     }
 
     private inner class PhoneVerificationListener :
@@ -159,6 +182,7 @@ class AppViewModel(
             viewModelScope.launch(showErrorExceptionHandler) {
                 val token = signInWithPhoneAuthCredential(credential)
                 navigator.navigate(SUCCESS_SCREEN)
+                loading(false)
             }
         }
 
@@ -173,6 +197,7 @@ class AppViewModel(
 
             // Show a message and update the UI
             onError(e)
+            loading(false)
         }
 
         override fun onCodeSent(
@@ -183,13 +208,16 @@ class AppViewModel(
             storedVerificationId = verificationId
             resendToken = token
             navigator.navigate(VERIFY_OTP_SCREEN)
+            timeoutResendCode()
+            loading(false)
         }
     }
 
-    private class AuthCompleteListener(
+    private inner class AuthCompleteListener(
         private val continuation: Continuation<FirebaseUser>
     ) : OnCompleteListener<AuthResult> {
         override fun onComplete(task: Task<AuthResult>) {
+            loading(false)
             if (task.isSuccessful) {
                 val user = task.result?.user
                 if (user == null) continuation.resumeWith(failure(UserIsNullError()))
@@ -202,10 +230,11 @@ class AppViewModel(
         }
     }
 
-    private class TokenIdCompleteListener(
+    private inner class TokenIdCompleteListener(
         private val continuation: Continuation<String>
     ) : OnCompleteListener<GetTokenResult> {
         override fun onComplete(task: Task<GetTokenResult>) {
+            loading(false)
             if (task.isSuccessful) {
                 val token = task.result?.token
                 if (token.isNullOrEmpty()) continuation.resumeWith(failure(TokenIdIsNullError()))

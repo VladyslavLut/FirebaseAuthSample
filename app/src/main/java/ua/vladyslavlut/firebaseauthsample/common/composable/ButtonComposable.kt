@@ -42,11 +42,13 @@ fun BasicTextButton(
 fun BasicButton(
     @StringRes text: Int,
     modifier: Modifier,
+    enabled: Boolean = true,
     action: () -> Unit
 ) {
     Button(
         onClick = action,
         modifier = modifier,
+        enabled = enabled,
         colors = ButtonDefaults.buttonColors(
             backgroundColor = MaterialTheme.colors.primary,
             contentColor = MaterialTheme.colors.onPrimary

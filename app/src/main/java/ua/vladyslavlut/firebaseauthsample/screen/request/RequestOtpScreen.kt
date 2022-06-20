@@ -20,6 +20,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import ua.vladyslavlut.firebaseauthsample.AppUiState
 import ua.vladyslavlut.firebaseauthsample.common.composable.BasicButton
+import ua.vladyslavlut.firebaseauthsample.common.composable.BasicCheckbox
 import ua.vladyslavlut.firebaseauthsample.common.composable.BasicField
 import ua.vladyslavlut.firebaseauthsample.common.composable.PhoneField
 import ua.vladyslavlut.firebaseauthsample.common.ext.basicButton
@@ -76,26 +77,24 @@ fun RequestOtpScreen(
                 value = uiState.language,
                 onNewValue = viewModel::onLanguageChange
             )
-            Row(
-                modifier = Modifier.fieldModifier()
-            ) {
-                Checkbox(
-                    checked = uiState.forceCaptchaEnabled,
-                    onCheckedChange = viewModel::onForceCaptchaChange
-                )
-                Text(
-                    text = "Enable force reCAPTCHA flow",
-                    Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.CenterVertically)
-                )
-            }
+            BasicCheckbox(
+                checked = uiState.useSystemLanguage,
+                modifier = Modifier.fieldModifier(),
+                text = "Use app language",
+                onCheckedChange = viewModel::onUseSystemLanguageChange
+            )
+            BasicCheckbox(
+                checked = uiState.forceCaptchaEnabled,
+                modifier = Modifier.fieldModifier(),
+                text = "Enable force reCAPTCHA verification",
+                onCheckedChange = viewModel::onForceCaptchaChange
+            )
         }
         Spacer(modifier = Modifier.weight(1f))
         BasicButton(
             AppText.request_otp,
-            Modifier
-                .basicButton()
+            Modifier.basicButton(),
+            enabled = !uiState.isLoading
         ) {
             viewModel.requestCode()
         }
